@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fiao – Ver tu cuenta</title>
+<meta property="og:title" content="Fiao: mira tu cuenta del colmado">
+<meta property="og:description" content="Toca para abrir tu cuenta en la app Fiao.">
+<link rel="stylesheet" href="style.css">
+<style>
+  body{max-width:460px}
+  .caja{margin:28px auto;text-align:center}
+  .logo{font-size:52px;line-height:1}
+  .codigo{display:inline-block;margin:14px 0 6px;padding:14px 22px;border-radius:16px;background:#ECFDF5;border:1.5px solid #6EE7B7;color:#065F46;font-size:30px;font-weight:900;letter-spacing:4px;font-family:ui-monospace,Menlo,monospace}
+  .boton{display:block;margin:12px auto 0;padding:15px 18px;border-radius:16px;text-decoration:none;font-weight:800;font-size:17px;max-width:320px}
+  .abrir{background:#1044A5;color:#fff}
+  .tienda{background:#0F172A;color:#fff}
+  .copiar{background:#fff;color:#1044A5;border:1.5px solid #C7D2FE;cursor:pointer;width:100%;font-family:inherit}
+  .paso{color:#475569;font-size:15px;margin-top:18px;text-align:left}
+  .paso b{color:#0F172A}
+  .oculto{display:none}
+</style></head><body>
+<div class="caja">
+  <div class="logo">📒</div>
+  <h1 id="titulo">Tu cuenta en Fiao</h1>
+  <p id="intro">Te invitaron a ver lo que tienes anotado en el colmado desde tu celular.</p>
+  <div id="cajaCodigo" class="oculto">
+    <div class="codigo" id="codigo"></div>
+    <button class="boton copiar" id="copiar" type="button">Copiar código</button>
+  </div>
+  <a class="boton abrir" id="abrir" href="#">Abrir en la app Fiao</a>
+  <a class="boton tienda" id="tienda" href="#">Descargar Fiao</a>
+  <div class="paso" id="pasos">
+    <p><b>¿No tienes la app?</b> Descárgala, ábrela, elige <b>"Soy cliente"</b> y toca <b>"¿El negocio te dio un código?"</b>. Pega el código y listo.</p>
+  </div>
+</div>
+<script>
+  var APP_STORE = 'https://apps.apple.com/app/id6822543446';
+  var PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.fiaoapp.fiao_app';
+  var q = new URLSearchParams(location.search);
+  var limpio = function (v) { return (v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12); };
+  var personal = limpio(q.get('c'));
+  var negocio = limpio(q.get('n'));
+  var codigo = personal || negocio;
+  var param = personal ? 'c=' + personal : (negocio ? 'n=' + negocio : '');
+  var esIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var esAndroid = /Android/i.test(navigator.userAgent);
+  var tienda = esAndroid ? PLAY_STORE : APP_STORE;
+  var app = 'com.fiaoapp.fiaoapp://unirse' + (param ? '?' + param : '');
+
+  document.getElementById('tienda').href = tienda;
+  document.getElementById('tienda').textContent = esAndroid ? 'Descargar en Google Play' : 'Descargar en el App Store';
+  if (esAndroid) {
+    // En Android, si la app no está instalada, Chrome lleva solo a Google Play.
+    app = 'intent://unirse' + (param ? '?' + param : '') +
+      '#Intent;scheme=com.fiaoapp.fiaoapp;package=com.fiaoapp.fiao_app;S.browser_fallback_url=' +
+      encodeURIComponent(PLAY_STORE) + ';end';
+  }
+  document.getElementById('abrir').href = app;
+
+  if (codigo) {
+    document.getElementById('cajaCodigo').classList.remove('oculto');
+    document.getElementById('codigo').textContent =
+      codigo.length === 8 ? codigo.slice(0, 4) + '-' + codigo.slice(4) : codigo;
+    if (negocio && !personal) {
+      document.getElementById('titulo').textContent = 'Busca este negocio en Fiao';
+      document.getElementById('intro').textContent = 'Con este código encuentras el colmado en la app y le pides ver tu cuenta.';
+      document.getElementById('pasos').innerHTML = '<p><b>¿No tienes la app?</b> Descárgala, ábrela, elige <b>"Soy cliente"</b> y en <b>"Buscar negocio"</b> pega este código.</p>';
+    }
+  }
+  document.getElementById('copiar').onclick = function () {
+    var b = this;
+    var ok = function () { b.textContent = '¡Copiado!'; setTimeout(function () { b.textContent = 'Copiar código'; }, 2000); };
+    if (navigator.clipboard) navigator.clipboard.writeText(codigo).then(ok, ok); else ok();
+  };
+
+  // En Android intenta abrir la app de una vez (si no está, va a Google Play).
+  // En iPhone se usa el botón: si la app no está instalada, Safari mostraría
+  // un error en vez de ir a la tienda.
+  if (codigo && esAndroid) {
+    setTimeout(function () { location.href = app; }, 350);
+  }
+</script>
+</body></html>
