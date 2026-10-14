@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fiao – Correo confirmado</title><link rel="stylesheet" href="style.css">
+<style>
+  .caja{max-width:440px;margin:48px auto;text-align:center}
+  .icono{font-size:56px;line-height:1}
+  .boton{display:inline-block;margin-top:20px;padding:14px 26px;border-radius:14px;background:#1044A5;color:#fff;text-decoration:none;font-weight:700}
+  .nota{color:#666;font-size:14px;margin-top:18px}
+</style></head><body>
+<div class="caja">
+  <div class="icono" id="icono">✅</div>
+  <h1 id="titulo">¡Correo confirmado!</h1>
+  <p id="texto">Ya puedes volver a la app Fiao. Si te lo pide, toca <strong>"Ya lo confirmé"</strong> para seguir y crear tu contraseña.</p>
+  <a class="boton" href="com.fiaoapp.fiaoapp://login-callback">Abrir Fiao</a>
+  <p class="nota">Si el botón no abre la app, ciérrala y vuelve a abrirla en tu teléfono.</p>
+</div>
+<script>
+  // Supabase manda los errores en la dirección (?error_description=… o #error_description=…).
+  var p = new URLSearchParams(location.search + '&' + location.hash.replace(/^#/, ''));
+  var err = p.get('error_description') || p.get('error');
+  var msg = p.get('message');
+  if (err) {
+    document.getElementById('icono').textContent = '⚠️';
+    document.getElementById('titulo').textContent = 'El enlace ya no sirve';
+    document.getElementById('texto').innerHTML = 'Puede que ya lo hayas usado o que haya vencido. Vuelve a la app Fiao: si tu correo aparece confirmado, sigue con tu contraseña; si no, toca <strong>"Enviar el correo otra vez"</strong>.';
+  } else if (msg && /confirm/i.test(msg)) {
+    // Al cambiar de correo, Supabase puede pedir confirmar en los dos correos.
+    document.getElementById('titulo').textContent = 'Falta un paso';
+    document.getElementById('texto').textContent = 'Revisa también el otro correo y abre el enlace que te llegó allí. Luego vuelve a la app Fiao.';
+  }
+</script>
+</body></html>
