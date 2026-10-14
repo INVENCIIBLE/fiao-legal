@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- El link es privado: que no lo guarden los buscadores ni se pase a otras páginas. -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://wfteqphbnjuugxbgztzk.supabase.co; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#1F3FA8">
+<title>Estado de cuenta</title>
+<style>
+  :root {
+    --tinta: #1F3FA8; --margen: #C8352E; --abono: #1E7A4C;
+    --grafito: #22262E; --gris: #5B6270; --renglon: #D9E1EE;
+    --fondo: #F4F6F9; --hoja: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fondo); color: var(--grafito);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+  .negocio { color: var(--tinta); font-weight: 700; font-size: 15px; letter-spacing: .02em; text-transform: uppercase; margin: 4px 0 2px; }
+  h1 { font-size: 26px; line-height: 1.2; margin: 0 0 16px; }
+  .hoja { background: var(--hoja); border: 1px solid var(--renglon); border-radius: 14px; padding: 20px; }
+  .etiqueta { color: var(--gris); margin: 0; }
+  .saldo { font-size: 40px; font-weight: 700; margin: 2px 0 4px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .debe { color: var(--margen); } .favor { color: var(--abono); } .cero { color: var(--gris); }
+  .pequeno { color: var(--gris); font-size: 14px; margin: 0; }
+  h2 { font-size: 19px; margin: 28px 0 8px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; gap: 12px; justify-content: space-between; align-items: flex-start; padding: 14px 16px; border-bottom: 1px solid var(--renglon); background: var(--hoja); }
+  li:first-child { border-radius: 14px 14px 0 0; } li:last-child { border-radius: 0 0 14px 14px; border-bottom: 0; }
+  li:only-child { border-radius: 14px; }
+  ul { border: 1px solid var(--renglon); border-radius: 14px; }
+  .tipo { font-weight: 600; margin: 0; }
+  .nota { margin: 2px 0 0; color: var(--grafito); overflow-wrap: anywhere; }
+  .fecha { margin: 2px 0 0; color: var(--gris); font-size: 14px; }
+  .monto { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .anulado .monto, .anulado .tipo { text-decoration: line-through; color: var(--gris); }
+  .chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; background: var(--fondo); color: var(--gris); margin-left: 6px; text-decoration: none; }
+  .aviso { margin-top: 24px; padding: 16px; border-radius: 14px; background: #E7ECFA; }
+  .aviso p { margin: 0 0 8px; } .aviso p:last-child { margin: 0; }
+  a.boton, button.boton {
+    display: inline-block; min-height: 48px; padding: 12px 18px; border-radius: 12px; border: 0;
+    background: var(--tinta); color: #fff; font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; margin: 6px 8px 0 0;
+  }
+  a.boton.secundario { background: transparent; color: var(--tinta); border: 1px solid var(--tinta); }
+  .codigo { font-family: ui-monospace, Consolas, monospace; font-weight: 700; letter-spacing: .1em; }
+  .centro { text-align: center; padding-top: 48px; }
+  footer { margin-top: 28px; color: var(--gris); font-size: 13px; text-align: center; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section id="cargando" class="centro">
+    <p class="pequeno">Cargando tu estado de cuenta…</p>
+  </section>
+
+  <section id="error" class="centro" hidden>
+    <h1 id="error-titulo"></h1>
+    <p id="error-mensaje" class="pequeno"></p>
+    <button id="reintentar" class="boton" type="button" hidden>Intentar otra vez</button>
+  </section>
+
+  <section id="cuenta" hidden>
+    <p class="negocio" id="negocio"></p>
+    <h1 id="titulo"></h1>
+    <div class="hoja">
+      <p class="etiqueta" id="etiqueta"></p>
+      <p class="saldo" id="saldo"></p>
+      <p class="pequeno" id="actualizado"></p>
+    </div>
+
+    <h2>Movimientos</h2>
+    <p class="pequeno" id="sin-movimientos" hidden>Todavía no hay movimientos.</p>
+    <ul id="movimientos"></ul>
+    <p class="pequeno" id="limite" hidden></p>
+
+    <div class="aviso">
+      <p><strong>¿Ves algo que no está bien?</strong> Habla con <span id="negocio-2"></span>.</p>
+      <p id="contacto" hidden></p>
+      <p id="codigo-app" hidden></p>
+    </div>
+    <footer>Solo tú y el negocio tienen este link. No lo compartas.</footer>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // Datos públicos del proyecto (la misma URL y clave pública que usa la app).
+  var SUPABASE_URL = 'https://wfteqphbnjuugxbgztzk.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_fKnJVz4L3WltMuzTqghPCg_1EK6CzHd';
+  var ZONA = 'America/Santo_Domingo';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var pesos = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function formatoPesos(n) { return 'RD$' + pesos.format(Math.abs(n)); }
+
+  var fechaHora = new Intl.DateTimeFormat('es-DO', {
+    timeZone: ZONA, day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit'
+  });
+  var soloFecha = new Intl.DateTimeFormat('es-DO', { timeZone: ZONA, day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  // El código va después del # (no se envía a ningún servidor de páginas).
+  function leerCodigo() {
+    var h = (location.hash || '').replace(/^#/, '');
+    var m = /(?:^|[&?])t=([0-9a-fA-F]{64})(?:&|$)/.exec(h) || /^([0-9a-fA-F]{64})$/.exec(h);
+    return m ? m[1].toLowerCase() : null;
+  }
+
+  function mostrar(id) {
+    ['cargando', 'error', 'cuenta'].forEach(function (s) { $(s).hidden = s !== id; });
+  }
+
+  function error(titulo, mensaje, reintentable) {
+    $('error-titulo').textContent = titulo;
+    $('error-mensaje').textContent = mensaje;
+    $('reintentar').hidden = !reintentable;
+    document.title = 'Estado de cuenta';
+    mostrar('error');
+  }
+
+  function etiquetaMovimiento(m) {
+    if (m.tipo === 'fiao') return 'Fiao';
+    if (m.tipo === 'abono') return 'Abono';
+    var de = m.anula_tipo === 'abono' ? 'abono' : 'fiao';
+    return 'Anulación del ' + de + (m.anula_fecha ? ' del ' + soloFecha.format(new Date(m.anula_fecha)) : '');
+  }
+
+  function el(tag, clase, texto) {
+    var e = document.createElement(tag);
+    if (clase) e.className = clase;
+    if (texto != null) e.textContent = texto;
+    return e;
+  }
+
+  function telefonoDigitos(t) {
+    var d = String(t || '').replace(/\D/g, '');
+    if (d.length === 10 && /^(809|829|849)/.test(d)) return '1' + d;
+    if (/^1(809|829|849)\d{7}$/.test(d)) return d;
+    return null;
+  }
+
+  function pintar(r) {
+    var negocio = r.negocio.nombre;
+    var cliente = r.cliente.nombre;
+    var saldo = Number(r.saldo);
+
+    document.title = 'Estado de cuenta · ' + negocio;
+    $('negocio').textContent = negocio;
+    $('negocio-2').textContent = negocio;
+    $('titulo').textContent = 'Estado de cuenta de ' + cliente;
+
+    var s = $('saldo');
+    if (saldo > 0) { $('etiqueta').textContent = 'Debes'; s.className = 'saldo debe'; s.textContent = formatoPesos(saldo); }
+    else if (saldo < 0) { $('etiqueta').textContent = 'Tienes a favor'; s.className = 'saldo favor'; s.textContent = formatoPesos(saldo); }
+    else { $('etiqueta').textContent = 'Estás al día'; s.className = 'saldo cero'; s.textContent = formatoPesos(0); }
+
+    $('actualizado').textContent = 'Actualizado: ' + fechaHora.format(new Date(r.generado_en));
+
+    var lista = $('movimientos');
+    lista.textContent = '';
+    var movs = r.movimientos || [];
+    $('sin-movimientos').hidden = movs.length > 0;
+    lista.hidden = movs.length === 0;
+    movs.forEach(function (m) {
+      var li = el('li', m.anulado ? 'anulado' : '');
+      var izq = el('div');
+      var tipo = el('p', 'tipo', etiquetaMovimiento(m));
+      izq.appendChild(tipo);
+      if (m.anulado) izq.appendChild(el('span', 'chip', 'Anulado'));
+      if (m.nota && m.tipo !== 'ajuste') izq.appendChild(el('p', 'nota', m.nota));
+      izq.appendChild(el('p', 'fecha', fechaHora.format(new Date(m.fecha))));
+      var efecto = Number(m.efecto);
+      var monto = el('span', 'monto', (efecto > 0 ? '+' : '−') + formatoPesos(Number(m.monto)));
+      if (!m.anulado) monto.style.color = efecto > 0 ? 'var(--margen)' : 'var(--abono)';
+      li.appendChild(izq);
+      li.appendChild(monto);
+      lista.appendChild(li);
+    });
+
+    var limite = $('limite');
+    limite.hidden = !(r.total_movimientos > movs.length);
+    limite.textContent = 'Se muestran los ' + movs.length + ' movimientos más recientes de ' + r.total_movimientos +
+      '. El saldo incluye todos.';
+
+    var contacto = $('contacto');
+    contacto.textContent = '';
+    var tel = telefonoDigitos(r.negocio.telefono);
+    if (tel) {
+      var llamar = el('a', 'boton secundario', 'Llamar');
+      llamar.href = 'tel:+' + tel;
+      var wa = el('a', 'boton', 'Escribir por WhatsApp');
+      wa.href = 'https://wa.me/' + tel + '?text=' + encodeURIComponent('Hola, tengo una pregunta sobre mi cuenta en ' + negocio + '.');
+      wa.rel = 'noopener noreferrer';
+      wa.target = '_blank';
+      contacto.appendChild(llamar);
+      contacto.appendChild(wa);
+      contacto.hidden = false;
+    } else {
+      contacto.hidden = true;
+    }
+
+    var cod = $('codigo-app');
+    cod.textContent = '';
+    if (r.negocio.codigo) {
+      cod.appendChild(document.createTextNode('Código del negocio en la app Fiao: '));
+      cod.appendChild(el('span', 'codigo', r.negocio.codigo));
+      cod.hidden = false;
+    }
+
+    mostrar('cuenta');
+  }
+
+  function cargar() {
+    var codigo = leerCodigo();
+    if (!codigo) {
+      error('Este link no está completo', 'Ábrelo otra vez desde el mensaje que te envió el negocio, o pídele uno nuevo.', false);
+      return;
+    }
+    mostrar('cargando');
+    var control = typeof AbortController === 'function' ? new AbortController() : null;
+    var reloj = setTimeout(function () { if (control) control.abort(); }, 15000);
+    fetch(SUPABASE_URL + '/rest/v1/rpc/account_statement', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ p_token: codigo }),
+      cache: 'no-store',
+      referrerPolicy: 'no-referrer',
+      signal: control ? control.signal : undefined
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function (r) {
+      clearTimeout(reloj);
+      if (!r || !r.negocio) {
+        error('Este link ya no funciona', 'Puede que el negocio lo haya cambiado o apagado. Pídele uno nuevo.', false);
+        return;
+      }
+      pintar(r);
+    }).catch(function () {
+      clearTimeout(reloj);
+      error('No se pudo cargar', 'Revisa tu conexión a internet y prueba otra vez.', true);
+    });
+  }
+
+  $('reintentar').addEventListener('click', cargar);
+  window.addEventListener('hashchange', cargar);
+  cargar();
+})();
+</script>
+</body>
+</html>
